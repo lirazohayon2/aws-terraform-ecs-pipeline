@@ -66,10 +66,6 @@ jobs:
             --service "$SERVICE_NAME" \
             --task-definition "$NEW_TD_ARN"
 
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$SERVICE_NAME"
-
   cd_worker:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
@@ -119,10 +115,6 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --service "$SERVICE_NAME" \
             --task-definition "$NEW_TD_ARN"
-
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "$SERVICE_NAME"
 
   smoke_test:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
