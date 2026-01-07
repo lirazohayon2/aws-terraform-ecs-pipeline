@@ -1,0 +1,3 @@
+pytest==8.2.2
+pytest-mock==3.14.0
+moto[sqs,s3]==5.0.12

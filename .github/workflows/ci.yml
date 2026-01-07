@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "968196829773"
+  PROJECT_NAME: "devops-project"
+
+jobs:
+  test_api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run API tests
+        working-directory: services/api
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r app/requirements.txt -r requirements-dev.txt
+          pytest -q
+
+  test_worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Worker tests
+        working-directory: services/worker
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r app/requirements.txt -r requirements-dev.txt
+          pytest -q
+
+  ci_api:
+    needs: test_api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::968196829773:role/devops-project-github-actions
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push API image
+        run: |
+          IMAGE_TAG=${GITHUB_SHA}
+          IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${PROJECT_NAME}-api:$IMAGE_TAG
+          docker build --provenance=false -t "$IMAGE_URI" services/api
+          docker push "$IMAGE_URI"
+
+  ci_worker:
+    needs: test_worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::968196829773:role/devops-project-github-actions
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Worker image
+        run: |
+          IMAGE_TAG=${GITHUB_SHA}
+          IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${PROJECT_NAME}-worker:$IMAGE_TAG
+          docker build --provenance=false -t "$IMAGE_URI" services/worker
+          docker push "$IMAGE_URI"
